@@ -125,7 +125,14 @@ async function videoCommand(sock, chatId, message) {
     const mb = (bytes) => (bytes / (1024 * 1024)).toFixed(1);
     const video = await fetchWhatsAppVideo(dl.download, {}, (event) => {
       if (event.stage === 'convert') {
-        update('⚙️ Converting video to WhatsApp MP4...', true);
+        if (!event.mode) update('⚙️ Inspecting video codecs...', true);
+        else {
+          const label = event.mode === 'remux' ? '⚙️ Preparing MP4 (no video re-encoding)...' : '⚙️ Converting video to WhatsApp MP4...';
+          const detail = event.duration > 0
+            ? `${Math.min(99, Math.floor(event.seconds / event.duration * 100))}% — ${Math.floor(event.seconds)} / ${Math.ceil(event.duration)} seconds processed`
+            : `${Math.floor(event.seconds)} seconds processed`;
+          update(`${label}\n${detail}`, event.seconds === 0);
+        }
       } else if (event.stage === 'download') {
         const { loaded, total, complete } = event;
         if (!loaded && !complete) return;
