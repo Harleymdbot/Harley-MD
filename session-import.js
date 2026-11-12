@@ -3,6 +3,7 @@ const fs = require('fs');
 const path = require('path');
 
 const PREFIX = 'HARLEY-MD:~';
+const { validTimezone } = require('./lib/timezone');
 
 function importSession() {
     const sessionDir = path.resolve(__dirname, 'session');
@@ -50,6 +51,7 @@ function importSession() {
             if (
                 !/^[a-zA-Z0-9_.@+-]+\.json$/.test(name) ||
                 name.includes('..') ||
+                name === 'harley-timezone.json' ||
                 typeof content !== 'string'
             ) {
                 throw new Error('Invalid session file.');
@@ -76,6 +78,11 @@ function importSession() {
                 data,
                 { mode: 0o600 }
             );
+        }
+
+        const timezone = validTimezone(payload.metadata?.timezone);
+        if (timezone) {
+            fs.writeFileSync(path.join(staging, 'harley-timezone.json'), JSON.stringify({ timezone }), { mode: 0o600 });
         }
 
         if (fs.existsSync(sessionDir)) {

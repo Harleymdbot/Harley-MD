@@ -13,6 +13,7 @@ require('./settings')
 const { Boom } = require('@hapi/boom')
 require('dotenv').config();
 const { importSession } = require('./session-import');
+const { startDailyGreetings, stopDailyGreetings } = require('./lib/dailyGreetings');
 const fs = require('fs')
 const chalk = require('chalk')
 const FileType = require('file-type')
@@ -289,6 +290,7 @@ async function startXeonBotInc() {
         
         if (connection == "open") {
             connected = true;
+            startDailyGreetings(XeonBotInc);
             clearTimeout(pairingTimer);
             console.log(chalk.magenta(` `))
             console.log(chalk.yellow(`🌿Connected to => ` + JSON.stringify(XeonBotInc.user, null, 2)))
@@ -325,6 +327,7 @@ async function startXeonBotInc() {
         
         if (connection === 'close') {
             connected = false;
+            stopDailyGreetings(XeonBotInc);
             clearTimeout(pairingTimer);
             activeSocket = null;
             msgRetryCounterCache.close();
@@ -397,6 +400,7 @@ async function startXeonBotInc() {
     } catch (error) {
         halted = true;
         const socket = activeSocket;
+        stopDailyGreetings(socket);
         activeSocket = null;
         try { socket?.end(undefined); } catch {}
         console.error('Startup stopped:', error.message);
