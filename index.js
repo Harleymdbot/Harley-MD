@@ -78,7 +78,8 @@ let owner = JSON.parse(fs.readFileSync('./data/owner.json'))
 
 global.botname = "Harley-MD"
 global.themeemoji = "•"
-const pairingCode = !!phoneNumber || process.argv.includes("--pairing-code")
+const importedMode = Boolean(process.env.SESSION_ID?.trim());
+const pairingCode = !importedMode && process.argv.includes('--pairing-code');
 const useMobile = process.argv.includes("--mobile")
 
 // Only create readline interface if we're in an interactive environment
@@ -93,11 +94,22 @@ const question = (text) => {
 }
 
 
+let activeSocket = null;
+let starting = false;
+let reconnectTimer = null;
+let halted = false;
+function scheduleReconnect() {
+    if (halted || reconnectTimer) return;
+    reconnectTimer = setTimeout(() => { reconnectTimer = null; void startXeonBotInc(); }, 5000);
+}
 async function startXeonBotInc() {
+    if (halted || starting || activeSocket) return;
+    starting = true;
     try {
-        let { version, isLatest } = await fetchLatestBaileysVersion()
         importSession();
+        let { version, isLatest } = await fetchLatestBaileysVersion()
         const { state, saveCreds } = await useMultiFileAuthState(`./session`)
+        if (importedMode && state.creds.registered !== true) throw new Error('Imported credentials are not registered. Generate a fresh SESSION_ID.');
         const msgRetryCounterCache = new NodeCache()
 
         const XeonBotInc = makeWASocket({
@@ -123,16 +135,20 @@ async function startXeonBotInc() {
             keepAliveIntervalMs: 10000,
         })
 
+        activeSocket = XeonBotInc;
+        let pairingTimer = null;
+        let connected = false;
         // Save credentials when they update
-        XeonBotInc.ev.on('creds.update', saveCreds)
+        XeonBotInc.ev.on('creds.update', () => { if (activeSocket === XeonBotInc) void saveCreds().catch(() => console.error('Credential save failed')); })
 
     store.bind(XeonBotInc.ev)
 
     // Message handling
     XeonBotInc.ev.on('messages.upsert', async chatUpdate => {
         try {
-            const mek = chatUpdate.messages[0]
-            if (!mek.message) return
+            if (activeSocket !== XeonBotInc || !connected) return;
+            const mek = chatUpdate.messages?.[0]
+            if (!mek?.message || !mek.key?.id) return
             mek.message = (Object.keys(mek.message)[0] === 'ephemeralMessage') ? mek.message.ephemeralMessage.message : mek.message
             if (mek.key && mek.key.remoteJid === 'status@broadcast') {
                 await handleStatus(XeonBotInc, chatUpdate);
@@ -244,7 +260,8 @@ async function startXeonBotInc() {
             process.exit(1);
         }
 
-        setTimeout(async () => {
+        pairingTimer = setTimeout(async () => {
+            if (activeSocket !== XeonBotInc || connected || XeonBotInc.authState.creds.registered) return;
             try {
                 let code = await XeonBotInc.requestPairingCode(phoneNumber)
                 code = code?.match(/.{1,4}/g)?.join("-") || code
@@ -259,6 +276,7 @@ async function startXeonBotInc() {
 
     // Connection handling
     XeonBotInc.ev.on('connection.update', async (s) => {
+        if (activeSocket !== XeonBotInc) return;
         const { connection, lastDisconnect, qr } = s
         
         if (qr) {
@@ -270,6 +288,8 @@ async function startXeonBotInc() {
         }
         
         if (connection == "open") {
+            connected = true;
+            clearTimeout(pairingTimer);
             console.log(chalk.magenta(` `))
             console.log(chalk.yellow(`🌿Connected to => ` + JSON.stringify(XeonBotInc.user, null, 2)))
 
@@ -292,6 +312,7 @@ async function startXeonBotInc() {
             }
 
             await delay(1999)
+            if (activeSocket !== XeonBotInc || !connected) return;
             console.log(chalk.yellow(`\n\n                  ${chalk.bold.blue(`[ ${global.botname || 'Harley-MD'} ]`)}\n\n`))
             console.log(chalk.cyan(`< ================================================== >`))
             console.log(chalk.magenta(`\n${global.themeemoji || '•'} YT CHANNEL: Elvis`))
@@ -303,41 +324,22 @@ async function startXeonBotInc() {
         }
         
         if (connection === 'close') {
-            const statusCode = lastDisconnect?.error?.output?.statusCode
-            const errMsg = String(lastDisconnect?.error?.message || lastDisconnect?.error || '')
-            const isLoggedOut = statusCode === DisconnectReason.loggedOut || statusCode === 401
-            const isConflict =
-                statusCode === DisconnectReason.connectionReplaced ||
-                statusCode === 440 ||
-                /conflict|replaced/i.test(errMsg)
-            const shouldReconnect = !isLoggedOut && !isConflict
-
-            console.log(chalk.red(`Connection closed due to ${lastDisconnect?.error}, reconnecting ${shouldReconnect}`))
-
-            if (isConflict) {
-                // Another WhatsApp Web / bot instance took the session — do NOT wipe auth
-                console.log(chalk.yellow('⚠️ Session conflict: another device/instance connected.'))
-                console.log(chalk.yellow('   Stop other `node .` / WhatsApp Web linked sessions, then start the bot once.'))
-                return
+            connected = false;
+            clearTimeout(pairingTimer);
+            activeSocket = null;
+            msgRetryCounterCache.close();
+            const statusCode = lastDisconnect?.error?.output?.statusCode;
+            const errMsg = String(lastDisconnect?.error?.message || '');
+            const terminal = [401, 403, 411, 440, 500, DisconnectReason.loggedOut, DisconnectReason.connectionReplaced].includes(statusCode) || /conflict|replaced/i.test(errMsg);
+            console.log(`Connection closed (status ${statusCode ?? 'unknown'}).`);
+            if (terminal) {
+                halted = true;
+                console.error('Authentication or session conflict. Session preserved. Stop the bot and check Linked Devices before restarting.');
+                return;
             }
-
-            if (isLoggedOut) {
-                try {
-                    rmSync('./session', { recursive: true, force: true })
-                    console.log(chalk.yellow('Session folder deleted. Please re-authenticate.'))
-                } catch (error) {
-                    console.error('Error deleting session:', error)
-                }
-                console.log(chalk.red('Session logged out. Please re-authenticate.'))
-                return
-            }
-
-            if (shouldReconnect) {
-                console.log(chalk.yellow('Reconnecting...'))
-                await delay(5000)
-                startXeonBotInc()
-            }
+            scheduleReconnect();
         }
+
     })
 
     // Track recently-notified callers to avoid spamming messages
@@ -380,28 +382,26 @@ async function startXeonBotInc() {
     });
 
     XeonBotInc.ev.on('group-participants.update', async (update) => {
-        await handleGroupParticipantUpdate(XeonBotInc, update);
-    });
-
-    XeonBotInc.ev.on('messages.upsert', async (m) => {
-        if (m.messages[0].key && m.messages[0].key.remoteJid === 'status@broadcast') {
-            await handleStatus(XeonBotInc, m);
-        }
+        if (activeSocket === XeonBotInc && connected) await handleGroupParticipantUpdate(XeonBotInc, update);
     });
 
     XeonBotInc.ev.on('status.update', async (status) => {
-        await handleStatus(XeonBotInc, status);
+        if (activeSocket === XeonBotInc && connected) await handleStatus(XeonBotInc, status);
     });
 
     XeonBotInc.ev.on('messages.reaction', async (status) => {
-        await handleStatus(XeonBotInc, status);
+        if (activeSocket === XeonBotInc && connected) await handleStatus(XeonBotInc, status);
     });
 
     return XeonBotInc
     } catch (error) {
-        console.error('Error in startXeonBotInc:', error)
-        await delay(5000)
-        startXeonBotInc()
+        halted = true;
+        const socket = activeSocket;
+        activeSocket = null;
+        try { socket?.end(undefined); } catch {}
+        console.error('Startup stopped:', error.message);
+    } finally {
+        starting = false;
     }
 }
 
@@ -419,10 +419,4 @@ process.on('unhandledRejection', (err) => {
     console.error('Unhandled Rejection:', err)
 })
 
-let file = require.resolve(__filename)
-fs.watchFile(file, () => {
-    fs.unwatchFile(file)
-    console.log(chalk.redBright(`Update ${__filename}`))
-    delete require.cache[file]
-    require(file)
-})
+// Restart the process explicitly after editing files.

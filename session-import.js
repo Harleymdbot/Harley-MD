@@ -9,6 +9,8 @@ function importSession() {
 
     // Preserve an existing working session
     if (fs.existsSync(path.join(sessionDir, 'creds.json'))) {
+        const creds = JSON.parse(fs.readFileSync(path.join(sessionDir, 'creds.json'), 'utf8'));
+        if (process.env.SESSION_ID?.trim() && creds.registered !== true) throw new Error('Existing session is not registered. Stop the bot and replace it with a fresh session.');
         console.log('Existing session found.');
         return;
     }
@@ -55,7 +57,9 @@ function importSession() {
 
             const data = Buffer.from(content, 'base64');
 
-            JSON.parse(data.toString('utf8'));
+            let parsed;
+            try { parsed = JSON.parse(data.toString('utf8')); } catch { throw new Error(`Invalid session JSON file: ${name}`); }
+            if (name === 'creds.json' && parsed?.registered !== true) throw new Error('Session credentials are not registered. Generate a fresh SESSION_ID.');
 
             return [name, data];
         }

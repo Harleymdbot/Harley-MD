@@ -170,6 +170,7 @@ const channelInfo = {
 };
 
 async function handleMessages(sock, messageUpdate, printLog) {
+    let chatId;
     try {
         const { messages, type } = messageUpdate;
         const message = messages[0];
@@ -190,7 +191,8 @@ async function handleMessages(sock, messageUpdate, printLog) {
             return;
         }
 
-        const chatId = message.key.remoteJid;
+        chatId = message.key?.remoteJid;
+        if (!chatId) return;
         const senderId = message.key.participant || message.key.remoteJid;
         const isGroup = chatId.endsWith('@g.us');
         const senderIsSudo = await isSudo(senderId);
@@ -1229,11 +1231,8 @@ async function handleMessages(sock, messageUpdate, printLog) {
     } catch (error) {
         console.error('❌ Error in message handler:', error.message);
         // Only try to send error message if we have a valid chatId
-        if (chatId) {
-            await sock.sendMessage(chatId, {
-                text: '❌ Failed to process command!',
-                ...channelInfo
-            });
+        if (chatId && error?.output?.statusCode !== 428 && !/connection closed/i.test(error?.message || '')) {
+            try { await sock.sendMessage(chatId, { text: '❌ Failed to process command!', ...channelInfo }); } catch {}
         }
     }
 }
