@@ -1,5 +1,23 @@
 const { downloadMediaMessage } = require('@whiskeysockets/baileys');
-const { exec } = require('child_process');
+const { execFile } = require('child_process');
+
+// FFmpeg does not need WhatsApp credentials or the large SESSION_ID.
+function runFFmpeg(args) {
+    const env = {};
+    for (const key of ['PATH', 'HOME', 'LANG', 'LC_ALL', 'LD_LIBRARY_PATH', 'SystemRoot', 'TEMP', 'TMP']) {
+        if (process.env[key] !== undefined) env[key] = process.env[key];
+    }
+    return new Promise((resolve, reject) => {
+        execFile('ffmpeg', ['-hide_banner', '-loglevel', 'error', '-nostdin', '-y', ...args],
+            { env, timeout: 120000, maxBuffer: 1024 * 1024 },
+            (error) => error ? reject(error) : resolve());
+    });
+}
+
+function convertSticker(input, output, { size = 512, fps, duration, quality = 75 } = {}) {
+    const filter = `scale=${size}:${size}:force_original_aspect_ratio=decrease,${fps ? `fps=${fps},` : 'format=rgba,'}pad=${size}:${size}:(ow-iw)/2:(oh-ih)/2:color=0x00000000`;
+    return runFFmpeg(['-i', input, ...(duration ? ['-t', String(duration)] : []), '-an', '-vf', filter, '-c:v', 'libwebp', '-preset', 'default', '-loop', '0', '-pix_fmt', 'yuva420p', '-quality', String(quality), '-compression_level', '6', ...(fps ? [] : ['-frames:v', '1']), output]);
+}
 const fs = require('fs');
 const path = require('path');
 const settings = require('../settings');
@@ -45,6 +63,7 @@ async function stickerCommand(sock, chatId, message) {
         return;
     }
 
+    let workDir;
     try {
         const mediaBuffer = await downloadMediaMessage(targetMessage, 'buffer', {}, { 
             logger: undefined, 
@@ -67,81 +86,26 @@ async function stickerCommand(sock, chatId, message) {
             return;
         }
 
-        // Create temp directory if it doesn't exist
         const tmpDir = path.join(process.cwd(), 'tmp');
-        if (!fs.existsSync(tmpDir)) {
-            fs.mkdirSync(tmpDir, { recursive: true });
-        }
-
-        // Generate temp file paths
-        const tempInput = path.join(tmpDir, `temp_${Date.now()}`);
-        const tempOutput = path.join(tmpDir, `sticker_${Date.now()}.webp`);
-
-        // Write media to temp file
+        fs.mkdirSync(tmpDir, { recursive: true });
+        workDir = fs.mkdtempSync(path.join(tmpDir, 'sticker-'));
+        const tempInput = path.join(workDir, 'input');
+        const tempOutput = path.join(workDir, 'output.webp');
         fs.writeFileSync(tempInput, mediaBuffer);
 
-        // Check if media is animated (GIF or video)
-        const isAnimated = mediaMessage.mimetype?.includes('gif') || 
-                          mediaMessage.mimetype?.includes('video') || 
-                          mediaMessage.seconds > 0;
-
-        // Convert to WebP using ffmpeg with optimized settings for animated/non-animated
-        const ffmpegCommand = isAnimated
-            ? `ffmpeg -i "${tempInput}" -vf "scale=512:512:force_original_aspect_ratio=decrease,fps=15,pad=512:512:(ow-iw)/2:(oh-ih)/2:color=#00000000" -c:v libwebp -preset default -loop 0 -vsync 0 -pix_fmt yuva420p -quality 75 -compression_level 6 "${tempOutput}"`
-            : `ffmpeg -i "${tempInput}" -vf "scale=512:512:force_original_aspect_ratio=decrease,format=rgba,pad=512:512:(ow-iw)/2:(oh-ih)/2:color=#00000000" -c:v libwebp -preset default -loop 0 -vsync 0 -pix_fmt yuva420p -quality 75 -compression_level 6 "${tempOutput}"`;
-
-        await new Promise((resolve, reject) => {
-            exec(ffmpegCommand, (error) => {
-                if (error) {
-                    console.error('FFmpeg error:', error);
-                    reject(error);
-                } else resolve();
-            });
-        });
-
-        // Read the WebP file
+        const isAnimated = mediaMessage.mimetype?.includes('gif') ||
+                           mediaMessage.mimetype?.includes('video') ||
+                           mediaMessage.seconds > 0;
+        await convertSticker(tempInput, tempOutput, isAnimated ? { fps: 15, duration: 10 } : {});
         let webpBuffer = fs.readFileSync(tempOutput);
-
-        // If animated and output is too large, re-encode with harsher settings similar to stickercrop
         if (isAnimated && webpBuffer.length > 1000 * 1024) {
+            const fallback = path.join(workDir, 'fallback.webp');
+            const large = mediaBuffer.length > 5000 * 1024;
             try {
-                const tempOutput2 = path.join(tmpDir, `sticker_fallback_${Date.now()}.webp`);
-                // Detect large source to decide compression level
-                const fileSizeKB = mediaBuffer.length / 1024;
-                const isLargeFile = fileSizeKB > 5000; // 5MB
-                const fallbackCmd = isLargeFile
-                    ? `ffmpeg -y -i "${tempInput}" -t 2 -vf "scale=512:512:force_original_aspect_ratio=decrease,fps=8,pad=512:512:(ow-iw)/2:(oh-ih)/2:color=#00000000" -c:v libwebp -preset default -loop 0 -vsync 0 -pix_fmt yuva420p -quality 30 -compression_level 6 -b:v 100k -max_muxing_queue_size 1024 "${tempOutput2}"`
-                    : `ffmpeg -y -i "${tempInput}" -t 3 -vf "scale=512:512:force_original_aspect_ratio=decrease,fps=12,pad=512:512:(ow-iw)/2:(oh-ih)/2:color=#00000000" -c:v libwebp -preset default -loop 0 -vsync 0 -pix_fmt yuva420p -quality 45 -compression_level 6 -b:v 150k -max_muxing_queue_size 1024 "${tempOutput2}"`;
-                await new Promise((resolve, reject) => {
-                    exec(fallbackCmd, (error) => error ? reject(error) : resolve());
-                });
-                if (fs.existsSync(tempOutput2)) {
-                    webpBuffer = fs.readFileSync(tempOutput2);
-                    try { fs.unlinkSync(tempOutput2); } catch {}
-                }
-            } catch {}
-        }
-        // Read the WebP file
-        webpBuffer = fs.readFileSync(tempOutput);
-
-        // If animated and output is too large, re-encode with harsher settings similar to stickercrop
-        if (isAnimated && webpBuffer.length > 1000 * 1024) {
-            try {
-                const tempOutput2 = path.join(tmpDir, `sticker_fallback_${Date.now()}.webp`);
-                // Detect large source to decide compression level
-                const fileSizeKB = mediaBuffer.length / 1024;
-                const isLargeFile = fileSizeKB > 5000; // 5MB
-                const fallbackCmd = isLargeFile
-                    ? `ffmpeg -y -i "${tempInput}" -t 2 -vf "scale=512:512:force_original_aspect_ratio=decrease,fps=8,pad=512:512:(ow-iw)/2:(oh-ih)/2:color=#00000000" -c:v libwebp -preset default -loop 0 -vsync 0 -pix_fmt yuva420p -quality 30 -compression_level 6 -b:v 100k -max_muxing_queue_size 1024 "${tempOutput2}"`
-                    : `ffmpeg -y -i "${tempInput}" -t 3 -vf "scale=512:512:force_original_aspect_ratio=decrease,fps=12,pad=512:512:(ow-iw)/2:(oh-ih)/2:color=#00000000" -c:v libwebp -preset default -loop 0 -vsync 0 -pix_fmt yuva420p -quality 45 -compression_level 6 -b:v 150k -max_muxing_queue_size 1024 "${tempOutput2}"`;
-                await new Promise((resolve, reject) => {
-                    exec(fallbackCmd, (error) => error ? reject(error) : resolve());
-                });
-                if (fs.existsSync(tempOutput2)) {
-                    webpBuffer = fs.readFileSync(tempOutput2);
-                    try { fs.unlinkSync(tempOutput2); } catch {}
-                }
-            } catch {}
+                await convertSticker(tempInput, fallback, { fps: large ? 8 : 12, duration: large ? 2 : 3, quality: large ? 30 : 45 });
+                const compressed = fs.readFileSync(fallback);
+                if (compressed.length < webpBuffer.length) webpBuffer = compressed;
+            } catch (error) { console.warn('Sticker compression fallback failed:', error.code || error.message); }
         }
 
         // Add metadata using webpmux
@@ -151,7 +115,7 @@ async function stickerCommand(sock, chatId, message) {
         // Create metadata
         const json = {
             'sticker-pack-id': crypto.randomBytes(32).toString('hex'),
-            'sticker-pack-name': settings.packname || 'KnightBot',
+            'sticker-pack-name': settings.packname || 'Harley-MD',
             'emojis': ['🤖']
         };
 
@@ -170,18 +134,15 @@ async function stickerCommand(sock, chatId, message) {
         // Final safety: if still too large, make a tiny 320/256px pass
         if (isAnimated && finalBuffer.length > 900 * 1024) {
             try {
-                const tempOutput3 = path.join(tmpDir, `sticker_small_${Date.now()}.webp`);
-                const smallCmd = `ffmpeg -y -i "${tempInput}" -t 2 -vf "scale=320:320:force_original_aspect_ratio=decrease,fps=8,pad=320:320:(ow-iw)/2:(oh-ih)/2:color=#00000000" -c:v libwebp -preset default -loop 0 -vsync 0 -pix_fmt yuva420p -quality 30 -compression_level 6 -b:v 80k -max_muxing_queue_size 1024 "${tempOutput3}"`;
-                await new Promise((resolve, reject) => {
-                    exec(smallCmd, (error) => error ? reject(error) : resolve());
-                });
+                const tempOutput3 = path.join(workDir, 'small.webp');
+                await convertSticker(tempInput, tempOutput3, { size: 320, fps: 8, duration: 2, quality: 30 });
                 if (fs.existsSync(tempOutput3)) {
                     const smallWebp = fs.readFileSync(tempOutput3);
                     const img2 = new webp.Image();
                     await img2.load(smallWebp);
                     const json2 = {
                         'sticker-pack-id': crypto.randomBytes(32).toString('hex'),
-                        'sticker-pack-name': settings.packname || 'KnightBot',
+                        'sticker-pack-name': settings.packname || 'Harley-MD',
                         'emojis': ['🤖']
                     };
                     const exifAttr2 = Buffer.from([0x49, 0x49, 0x2A, 0x00, 0x08, 0x00, 0x00, 0x00, 0x01, 0x00, 0x41, 0x57, 0x07, 0x00, 0x00, 0x00, 0x00, 0x00, 0x16, 0x00, 0x00, 0x00]);
@@ -189,7 +150,8 @@ async function stickerCommand(sock, chatId, message) {
                     const exif2 = Buffer.concat([exifAttr2, jsonBuffer2]);
                     exif2.writeUIntLE(jsonBuffer2.length, 14, 4);
                     img2.exif = exif2;
-                    finalBuffer = await img2.save(null);
+                    const smaller = await img2.save(null);
+                    if (smaller.length < finalBuffer.length) finalBuffer = smaller;
                     try { fs.unlinkSync(tempOutput3); } catch {}
                 }
             } catch {}
@@ -200,16 +162,8 @@ async function stickerCommand(sock, chatId, message) {
             sticker: finalBuffer
         },{ quoted: messageToQuote });
 
-        // Cleanup temp files
-        try {
-            fs.unlinkSync(tempInput);
-            fs.unlinkSync(tempOutput);
-        } catch (err) {
-            console.error('Error cleaning up temp files:', err);
-        }
-
     } catch (error) {
-        console.error('Error in sticker command:', error);
+        console.error('Error in sticker command:', error.code || error.message);
         await sock.sendMessage(chatId, { 
             text: 'Failed to create sticker! Try again later.',
             contextInfo: {
@@ -222,6 +176,11 @@ async function stickerCommand(sock, chatId, message) {
                 }
             }
         });
+    } finally {
+        if (workDir) {
+            try { fs.rmSync(workDir, { recursive: true, force: true }); }
+            catch (error) { console.warn('Sticker cleanup failed:', error.code || error.message); }
+        }
     }
 }
 
