@@ -1,4 +1,4 @@
-# 🤖 Knight Bot
+# 🤖 Harley Bot
 
 This is a WhatsApp bot built using the Baileys library for group management, including features like tagging all members, muting/unmuting, and many more. It's designed to help admins efficiently manage WhatsApp groups.
 
@@ -9,21 +9,21 @@ This is a WhatsApp bot built using the Baileys library for group management, inc
 </div> 
 
 <div align="center"> 
-  <a href="https://youtube.com/@mr_unique_hacker"> 
-    <img src="https://github.com/mruniquehacker/Knightbot-MD/blob/main/assets/bot_image.jpg" alt="Knight Bot" height="300"> 
+  <a href="https://youtube.com/@mr_elvis"> 
+    <img src="https://github.com/elvismaina2005/Knightbot-MD/blob/main/assets/bot_image.jpg" alt="Harley Bot" height="300"> 
   </a> 
 </div>
 
 <div align="center">
-  <img src="https://img.shields.io/github/followers/mruniquehacker?style=for-the-badge&label=Followers" alt="Followers"/>
-  <img src="https://img.shields.io/github/stars/mruniquehacker/Knightbot-MD?style=for-the-badge&label=Stars" alt="Stars"/>
-  <img src="https://img.shields.io/github/forks/mruniquehacker/Knightbot-MD?style=for-the-badge&label=Forks" alt="Forks"/>
-  <img src="https://img.shields.io/github/watchers/mruniquehacker/Knightbot-MD?style=for-the-badge&label=Watchers" alt="Watchers"/>
+  <img src="https://img.shields.io/github/followers/elvismaina2005?style=for-the-badge&label=Followers" alt="Followers"/>
+  <img src="https://img.shields.io/github/stars/elvismaina2005/Harley-MD?style=for-the-badge&label=Stars" alt="Stars"/>
+  <img src="https://img.shields.io/github/forks/elvismaina2005/Harley-MD?style=for-the-badge&label=Forks" alt="Forks"/>
+  <img src="https://img.shields.io/github/watchers/elvismaina2005/Harley-MD?style=for-the-badge&label=Watchers" alt="Watchers"/>
 </div>
 
 ---
 <div>
-  <a href="https://www.rapidproxy.io/?ref=Knightbot" target="_blank">
+  <a href="https://www.rapidproxy.io/?ref=Harley-MD" target="_blank">
     <img src="assets/rapid.jpg" alt="RapidProxy" width="100%" />
   </a>
 </div>
@@ -39,7 +39,7 @@ This is a WhatsApp bot built using the Baileys library for group management, inc
 <br>
 
 <div align="left">
-  <a href="https://www.rapidproxy.io/?ref=Knightbot" target="_blank">
+  <a href="https://www.rapidproxy.io/?ref=Harley-MD" target="_blank">
     <img src="https://img.shields.io/badge/Try now-28a745?style=for-the-badge" alt="Try now"/>
   </a>
 </div>
@@ -52,7 +52,7 @@ This is a WhatsApp bot built using the Baileys library for group management, inc
 Click the button below to fork the Knight Bot repository to your GitHub account:
 
 <div align="center">
-  <a href="https://github.com/mruniquehacker/Knightbot-MD/fork">
+  <a href="https://github.com/elvismaina2005/Harley-MD/fork">
     <img src="https://img.shields.io/badge/Fork-Repository-blue?style=for-the-badge" alt="Fork the repository"/>
   </a>
 </div>
@@ -64,7 +64,7 @@ Click the button below to fork the Knight Bot repository to your GitHub account:
 Deploy the bot and easily connect it to your WhatsApp account by pair code. Click the button below to deploy the bot on Replit.
 
 <div align="center">
-  <a href="https://knight-bot-paircode.onrender.com" target="_blank">
+  <a href="https://harley-md-pair.onrender.com/" target="_blank">
     <img src="https://img.shields.io/badge/GET%20PAIR%20CODE-Easy%20Method-ff4d4d?style=for-the-badge" alt="Generate Pair Code"/>
   </a>
 </div>
@@ -82,7 +82,7 @@ For further customization and setup guidance, click the button below:
   <a href="https://youtu.be/-oz_u1iMgf8">
     <img src="https://img.shields.io/badge/Deploy Tutorial-dc3545?style=for-the-badge&logo=youtube" alt="YouTube Link"/>
   </a>
-  <a href="https://bot-hosting.net/?aff=1068419752923508776">
+  <a href="https://bot-hosting.net/?aff=harleybot20">
     <img src="https://img.shields.io/badge/Deploy on Panel-28a745?style=for-the-badge" alt="Deploy on Panel"/>
   </a>
 </div>
@@ -90,7 +90,7 @@ For further customization and setup guidance, click the button below:
 ### Deploy on VPS
 
 <div align="center">
-  <a href="https://client.petrosky.io/aff.php?aff=394" target="_blank">
+  <a href="https://client.petrosky.io/aff.php?aff=477" target="_blank">
     <img src="https://img.shields.io/badge/petrosky vps-0078E7?style=for-the-badge" alt="petrosky vps"/>
   </a>
 </div>
@@ -105,7 +105,7 @@ For further customization and setup guidance, click the button below:
 ### Join Us
 
 <div align="center">
-  <a href="https://t.me/+3QhFUZHx-nhhZmY1">
+  <a href="https://t.me/HarleyMDBot">
     <img src="https://img.shields.io/badge/Join%20Telegram-0078E7?style=for-the-badge&logo=telegram&logoColor=white" alt="Join Telegram"/>
   </a>
   <a href="https://whatsapp.com/channel/0029Va90zAnIHphOuO8Msp3A">
@@ -129,7 +129,7 @@ For further customization and setup guidance, click the button below:
 
 ## 📖 About
 
-The Knight WhatsApp Bot assists group admins by providing them with tools to efficiently manage large WhatsApp groups. The bot uses the Baileys library to interact with the WhatsApp Web API and supports multi-device features.
+The Harley-MD WhatsApp Bot assists group admins by providing them with tools to efficiently manage large WhatsApp groups. The bot uses the Baileys library to interact with the WhatsApp Web API and supports multi-device features.
 
 It is lightweight and can be easily customized to add more commands as per your requirements. The bot runs in a Node.js environment and provides QR code-based authentication to link your WhatsApp account.
 
@@ -147,8 +147,8 @@ It is lightweight and can be easily customized to add more commands as per your 
 1. **Clone the repository:**
 
     ```bash
-    git clone https://github.com/mruniquehacker/Knightbot-MD.git
-    cd Knightbot-MD
+    git clone https://github.com/elvismaina2005/Harley-MD.git
+    cd Harley-MD
     ```
 
 2. **Install the dependencies:**
@@ -173,7 +173,7 @@ It is lightweight and can be easily customized to add more commands as per your 
 
 <div align="center">
 
-<a href="https://buymeacoffee.com/mruniquehacker" target="_blank">
+<a href="https://buymeacoffee.com/harleymd" target="_blank">
   <img src="https://img.shields.io/badge/Buy%20Me%20a%20Coffee-Support%20Developer-FF813F?style=for-the-badge&logo=buy-me-a-coffee&logoColor=white" alt="Buy Me a Coffee">
 </a>
 
@@ -191,27 +191,27 @@ If you find this project helpful and want to support the developer, consider buy
 
 ## 📄 License
 
-This project is licensed under the [MIT License](https://opensource.org/licenses/MIT) - see the [LICENSE](https://github.com/mruniquehacker/Knightbot-MD/blob/main/LICENSE) file for details.
+This project is licensed under the [MIT License](https://opensource.org/licenses/MIT) - see the [LICENSE](https://github.com/elvismaina2005/Harley-MD/blob/main/LICENSE) file for details.
 
 ---
 
 ## 🙌 Contributions
 
-Contributions, issues, and feature requests are welcome! Feel free to check the [issues page](https://github.com/mruniquehacker/Knightbot-MD/issues).
+Contributions, issues, and feature requests are welcome! Feel free to check the [issues page](https://github.com/elvismaina2005/Harley-MD/issues).
 
 ---
 
 ## 🌟 Show your support
 
-If you like this project, please give it a [⭐️ star on GitHub](https://github.com/mruniquehacker/Knightbot)!
+If you like this project, please give it a [⭐️ star on GitHub](https://github.com/elvismaina2005/Harley-MD)!
 
 
 ## Credits
 
-- [Professor](https://github.com/mruniquehacker)
+- [Professor](https://github.com/elvismaina2005)
 - [Baileys](https://github.com/adiwajshing/Baileys)
-- [TechGod143](https://github.com/TechGod143) for pair code
-- [Dgxeon](https://github.com/Dgxeon) for pair code
+- [TechGod143](https://github.com/elvismaina2005) for pair code
+- [Dgxeon](https://github.com/elvismaina2005) for pair code
 
 ---
 
@@ -236,7 +236,7 @@ This project is licensed under the MIT License. However, you must:
 
 ## 📜 Copyright Notice
 
-Copyright (c) 2024 Professor. All rights reserved.
+Copyright (c) 2026 Elvis. All rights reserved.
 
 This project contains code from various open source projects:
 - Baileys (MIT License)
