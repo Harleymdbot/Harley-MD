@@ -44,6 +44,28 @@ async function resolveVideo(videoUrl) {
 }
 
 async function videoCommand(sock, chatId, message) {
+  let statusKey;
+  let pending = Promise.resolve();
+  let lastUpdate = 0;
+  let lastText = '';
+  const update = (text, force = false) => {
+    if (text === lastText || (!force && Date.now() - lastUpdate < 5000)) return pending;
+    lastText = text;
+    lastUpdate = Date.now();
+    console.log(`[VIDEO] ${text.replace(/\n/g, " | ")}`);
+    pending = pending.then(async () => {
+      try {
+        if (statusKey) await sock.sendMessage(chatId, { text, edit: statusKey });
+        else {
+          const sent = await sock.sendMessage(chatId, { text }, { quoted: message });
+          statusKey = sent?.key;
+        }
+      } catch (err) {
+        console.warn("[VIDEO] Progress message failed:", err?.message || err);
+      }
+    });
+    return pending;
+  };
   try {
     const text =
       message.message?.conversation || message.message?.extendedTextMessage?.text || '';
@@ -57,6 +79,7 @@ async function videoCommand(sock, chatId, message) {
       );
     }
 
+    await update("🎬 Searching for video...", true);
     let preview;
     let videoUrl;
 
@@ -71,7 +94,8 @@ async function videoCommand(sock, chatId, message) {
       const search = await yts(query);
       preview = search?.videos?.[0];
       if (!preview) {
-        return sock.sendMessage(chatId, { text: '❌ No results found.' }, { quoted: message });
+        await update('❌ No results found.', true);
+        return;
       }
       videoUrl = preview.url;
     }
@@ -82,21 +106,37 @@ async function videoCommand(sock, chatId, message) {
           chatId,
           {
             image: { url: preview.thumbnail },
-            caption: `${formatInfo(preview)}\n\nDownloading...`,
+            caption: `${formatInfo(preview)}\n\nFinding download source...`,
           },
           { quoted: message }
         );
       } catch {
         await sock.sendMessage(
           chatId,
-          { text: `${formatInfo(preview)}\n\nDownloading...` },
+          { text: `${formatInfo(preview)}\n\nFinding download source...` },
           { quoted: message }
         );
       }
     }
 
+    await update('🔎 Finding download source...', true);
     const dl = await resolveVideo(videoUrl);
-    const video = await fetchWhatsAppVideo(dl.download);
+    await update('📥 Download source found. Starting download...', true);
+    const mb = (bytes) => (bytes / (1024 * 1024)).toFixed(1);
+    const video = await fetchWhatsAppVideo(dl.download, {}, (event) => {
+      if (event.stage === 'convert') {
+        update('⚙️ Converting video to WhatsApp MP4...', true);
+      } else if (event.stage === 'download') {
+        const { loaded, total, complete } = event;
+        if (!loaded && !complete) return;
+        const percent = total ? Math.min(complete ? 100 : 99, Math.floor(loaded / total * 100)) : null;
+        const detail = percent === null
+          ? `${mb(loaded)} MB downloaded`
+          : `${percent}% — ${mb(loaded)} / ${mb(total)} MB`;
+        update(`📥 Downloading video...\n${detail}`, !!complete);
+      }
+    });
+    await update('📤 Sending video to WhatsApp...', true);
     const botName = settings.botName || 'Knight Bot';
     const title = dl.title || preview.title || 'Video';
     const fileName = `${title.replace(/[^\w\s-]/g, '').trim() || 'video'}.mp4`;
@@ -111,7 +151,10 @@ async function videoCommand(sock, chatId, message) {
       },
       { quoted: message }
     );
+    await update("✅ Video sent successfully!", true);
   } catch (err) {
+    await pending;
+    if (statusKey) await update("❌ Video request failed.", true);
     console.error('[video]', err?.message || err);
     await sock.sendMessage(
       chatId,
