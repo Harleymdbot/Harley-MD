@@ -1,5 +1,5 @@
 // 🧹 Fix for ENOSPC / temp overflow in hosted panels
-const fs = require('fs');
+const fs = require('fs'); 
 const path = require('path');
 
 // Redirect temp storage away from system /tmp
