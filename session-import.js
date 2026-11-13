@@ -2,7 +2,7 @@
 const fs = require('fs');
 const path = require('path');
 
-const PREFIX = 'HARLEY-MD:~';
+const PREFIX = 'HARLEY-MD:~'; 
 const { validTimezone } = require('./lib/timezone');
 
 function importSession() {
